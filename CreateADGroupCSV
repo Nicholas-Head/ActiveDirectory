@@ -1,0 +1,16 @@
+# Import the CSV file with user information
+$users = Import-Csv -Path "C:\Users.csv"
+
+# Define the name of the group to add users to
+$groupName = "GroupName"
+
+# Get the group object
+$group = Get-ADGroup -Identity $groupName
+
+# Loop through each user and add them to the group
+foreach ($user in $users) {
+    Add-ADGroupMember -Identity $group -Members $user.Username
+}
+
+# Output success message
+Write-Host "Users added to group $groupName successfully."
