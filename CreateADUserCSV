@@ -1,0 +1,22 @@
+# Import user information from CSV file
+$userInfo = Import-Csv -Path "C:\UserInformation.csv"
+
+# Loop through each user and create a new AD user with the specified properties
+foreach ($user in $userInfo) {
+
+    # Set variables for user properties
+    $firstName = $user.FirstName
+    $lastName = $user.LastName
+    $username = $user.Username
+    $mailName = $user.MailName
+
+    # Set variables for SMTP addresses
+    $primarySMTP = $username + "@mydomain.com"
+    $secondarySMTP = $username + "@mydomain.mail.onmicrosoft.com"
+
+    # Create new AD user
+    New-ADUser -GivenName $firstName -Surname $lastName -SamAccountName $username -Name ($firstName + " " + $lastName) -EmailAddress $primarySMTP -AccountPassword (ConvertTo-SecureString "P@ssword!" -AsPlainText -Force) -Enabled $true -PassThru | Enable-Mailbox -Alias $username -PrimarySmtpAddress $primarySMTP
+
+    # Add secondary SMTP address
+    Set-Mailbox -Identity $username -EmailAddresses @{Add=$secondarySMTP}
+}
