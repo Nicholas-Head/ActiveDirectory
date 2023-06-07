@@ -1,0 +1,59 @@
+# Define your Microsoft Forms API credentials
+$clientId = "Your_Client_ID"
+$clientSecret = "Your_Client_Secret"
+$tenantId = "Your_Tenant_ID"
+
+# Define the form ID
+$formId = "Your_Form_ID"
+
+# Get an access token for the Microsoft Forms API
+$tokenUrl = "https://login.microsoftonline.com/$tenantId/oauth2/v2.0/token"
+$tokenParams = @{
+    client_id = $clientId
+    client_secret = $clientSecret
+    scope = "https://graph.microsoft.com/.default"
+    grant_type = "client_credentials"
+}
+$tokenResponse = Invoke-RestMethod -Method POST -Uri $tokenUrl -Form $tokenParams
+$accessToken = $tokenResponse.access_token
+
+# Get form responses
+$responsesUrl = "https://graph.microsoft.com/v1.0/forms/$formId/responses"
+$headers = @{
+    Authorization = "Bearer $accessToken"
+}
+$responses = Invoke-RestMethod -Method GET -Uri $responsesUrl -Headers $headers
+
+# Process each response
+foreach ($response in $responses.value) {
+    $firstName = $response.answers.FirstName.answer
+    $lastName = $response.answers.LastName.answer
+    $jobTitle = $response.answers.JobTitle.answer
+    $department = $response.answers.Department.answer
+
+    # Concatenate first name and last name to form the full name
+    $fullName = "$firstName $lastName"
+
+    # Retrieve the distinguished name (DN) of the line manager from Active Directory
+    $lineManager = $response.answers.LineManager.answer
+    $lineManagerDN = (Get-ADUser -Identity $lineManager).DistinguishedName
+
+    # Create the Active Directory user account
+    $adUserParams = @{
+        SamAccountName = $firstName.ToLower() + $lastName.ToLower()
+        GivenName = $firstName
+        Surname = $lastName
+        DisplayName = $fullName
+        Title = $jobTitle
+        Department = $department
+        Manager = $lineManagerDN
+        Enabled = $true
+        AccountPassword = (ConvertTo-SecureString -String "Password123" -AsPlainText -Force) # Change the password as per your requirements
+        ChangePasswordAtLogon = $true
+        PasswordNeverExpires = $false
+    }
+
+    New-ADUser @adUserParams
+
+    Write-Host "Active Directory user account created successfully."
+}
